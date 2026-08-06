@@ -1,0 +1,27 @@
+[Unit]
+Description=Capstone Express App
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=svc-capstone
+Group=svc-capstone
+WorkingDirectory=/opt/capstone-app
+EnvironmentFile=/opt/capstone-app/.env
+ExecStart=/usr/bin/node /opt/capstone-app/server.js
+Restart=on-failure
+RestartSec=3
+
+# Logs go to journald automatically via stdout/stderr; tag them for easy filtering
+SyslogIdentifier=capstone-app
+
+# --- Hardening (nice extras to mention in the report / Q&A) ---
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/capstone-app
+
+[Install]
+WantedBy=multi-user.target
