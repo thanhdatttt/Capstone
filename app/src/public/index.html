@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capstone App</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    max-width: 640px;
+    margin: 40px auto;
+    padding: 0 20px;
+    background: #f6f7f9;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 13px; margin-bottom: 24px; }
+  .status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .status.ok { background: #dcfce7; color: #15803d; }
+  .status.error { background: #fee2e2; color: #b91c1c; }
+  form {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  input[type="text"] {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #d8dade;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  button {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:hover { background: #1d4ed8; }
+  button:disabled { background: #93c5fd; cursor: not-allowed; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li {
+    background: white;
+    border: 1px solid #eceef1;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  li .content { font-size: 14px; margin-bottom: 4px; }
+  li .meta { font-size: 11px; color: #888; }
+  .empty { color: #888; font-size: 13px; padding: 20px 0; text-align: center; }
+  .error-msg { color: #b91c1c; font-size: 13px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+  <h1>Capstone App — Notes</h1>
+  <div class="subtitle">Demo page for displaying and adding notes</div>
+
+  <div id="dbStatus" class="status">checking DB connection...</div>
+
+  <form id="noteForm">
+    <input type="text" id="noteInput" placeholder="Enter the note..." maxlength="500" required>
+    <button type="submit" id="submitBtn">Add</button>
+  </form>
+
+  <div id="errorMsg" class="error-msg" style="display:none;"></div>
+
+  <ul id="notesList"></ul>
+  <div id="emptyMsg" class="empty" style="display:none;">There is no note.</div>
+
+<script>
+  const notesList = document.getElementById('notesList');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const errorMsg = document.getElementById('errorMsg');
+  const dbStatus = document.getElementById('dbStatus');
+  const form = document.getElementById('noteForm');
+  const input = document.getElementById('noteInput');
+  const submitBtn = document.getElementById('submitBtn');
+
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.style.display = 'block';
+  }
+  function clearError() {
+    errorMsg.style.display = 'none';
+  }
+
+  async function checkHealth() {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      if (data.status === 'ok') {
+        dbStatus.textContent = 'DB: connected';
+        dbStatus.className = 'status ok';
+      } else {
+        throw new Error('db not ok');
+      }
+    } catch (err) {
+      dbStatus.textContent = 'DB: unreachable';
+      dbStatus.className = 'status error';
+    }
+  }
+
+  async function loadNotes() {
+    try {
+      const res = await fetch('/api/notes');
+      if (!res.ok) throw new Error('Unable to load notes');
+      const notes = await res.json();
+      clearError();
+      notesList.innerHTML = '';
+      if (notes.length === 0) {
+        emptyMsg.style.display = 'block';
+        return;
+      }
+      emptyMsg.style.display = 'none';
+      for (const note of notes) {
+        const li = document.createElement('li');
+        const time = new Date(note.created_at).toLocaleString('vi-VN');
+        li.innerHTML = `<div class="content"></div><div class="meta">#${note.id} · ${time}</div>`;
+        li.querySelector('.content').textContent = note.content; // textContent tránh XSS
+        notesList.appendChild(li);
+      }
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const content = input.value.trim();
+    if (!content) return;
+
+    submitBtn.disabled = true;
+    try {
+      const res = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to add note');
+      }
+      input.value = '';
+      clearError();
+      await loadNotes();
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  checkHealth();
+  loadNotes();
+</script>
+</body>
+</html>
