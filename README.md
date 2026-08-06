@@ -49,9 +49,7 @@ Capstone/                        ← Repository root
 │
 ├── app/                               ← Node.js + Express application
 │   ├── src/
-│   │   ├── routes/                    ← Read (GET) & write (POST) API endpoints
-│   │   ├── db/                        ← PostgreSQL connection pool
-│   │   └── index.js
+│   │   └── server.js                  ← PostgreSQL connection pool, Read (GET) & write (POST) API endpoints
 │   ├── package.json
 │   ├── .env.example                   ← Template for secrets (real .env is 600, never committed)
 │   └── app.service                    ← systemd unit (Restart=on-failure, journald)
