@@ -60,7 +60,7 @@ Capstone/                        ← Repository root
 │   └── tls/                           ← (Bonus) self-signed cert + HTTP→HTTPS redirect
 │
 ├── db/                                ← PostgreSQL setup
-│   ├── init.sql                       ← DB + least-privilege role creation
+│   ├── seed.sql                       ← seed DB + least-privilege role creation
 │   └── postgresql.conf.d/             ← localhost-only listen config
 │
 ├── security/                          ← Hardening configs
