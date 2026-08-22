@@ -31,10 +31,10 @@ A bonus self-signed TLS setup (HTTP → HTTPS redirect) is also included.
 | Fullname | Student ID | Role |
 |---|---|---|
 | Huynh Hao Nam | 23127431 | R1 — Infrastructure & Networking |
-| Nguyen Tan Loc | 23127406 | R2 — Reverse Proxy & Web Security |
+| Nguyen Van Minh | 23127423 | R2 — Reverse Proxy & Web Security |
 | Pham Thanh Dat | 23127170 | R3 — Application & systemd |
 | Mai Xuan Hung | 23127372 | R4 — Database & Backup |
-| Nguyen Van Minh | 23127423 | R5 — Automation Toolkit & Alerting |
+| Nguyen Tan Loc | 23127406 | R5 — Automation Toolkit & Alerting |
 
 ---
 
