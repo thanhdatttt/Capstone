@@ -1,0 +1,15 @@
+# Copy to /etc/msmtprc or ~/.msmtprc on VM1 and set mode 0600.
+defaults
+auth on
+tls on
+tls_starttls on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+
+account gmail
+host smtp.gmail.com
+port 587
+from <SMTP_FROM_ADDRESS>
+user <SMTP_USERNAME>
+password <SMTP_APP_PASSWORD>
+
+account default : gmail

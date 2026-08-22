@@ -43,48 +43,53 @@ A bonus self-signed TLS setup (HTTP → HTTPS redirect) is also included.
 ```
 Capstone/                        ← Repository root
 ├── README.md
-├── docs/                              ← Technical report, architecture diagrams
-│   ├── report.pdf
-│   └── vm-architecture.png
+├── docs/                              ← Technical reports, audit, and demo runbook
+│   ├── demo_runbook.md                ← 12-15 min demo walkthrough & speaking script
+│   ├── cmd.txt                        ← Fast copy-paste command checklist
+│   ├── lynis_remediation_report.md    ← Lynis audit & 3 remediation items (61 -> 63)
+│   ├── audit_compliance_report.md     ← Rubrics compliance audit report
+│   └── task_plan.md                   ← Team execution plan
 │
-├── app/                               ← Node.js + Express application
-│   ├── src/
-│   │    ├── public/index.html          ← Web UI
-│   │    └── server.js                  ← PostgreSQL connection pool, Read (GET) & write (POST) API endpoints
-│   ├── package.json
-│   ├── .env.example                   ← Template for secrets (real .env is 600, never committed)
-│   └── app.service                    ← systemd unit (Restart=on-failure, journald)
+├── vm1/                               ← Filesystem mirror for VM1 (Service Host)
+│   ├── etc/
+│   │   ├── audit/rules.d/
+│   │   │   └── sensitive_files.rules  ← Auditd rules for /etc/passwd & /etc/shadow
+│   │   ├── capstoneapp/
+│   │   │   └── .env.example           ← Secrets template (real .env is 0600)
+│   │   ├── fail2ban/
+│   │   │   └── jail.local             ← Fail2ban jail configuration (sshd)
+│   │   ├── nginx/sites-available/
+│   │   │   ├── capstone.conf          ← VHost #1 (app.lab.local :3000 + TLS)
+│   │   │   └── sysinfo.conf           ← VHost #2 (status.lab.local :4000 + TLS)
+│   │   ├── systemd/system/
+│   │   │   ├── capstone-app.service   ← Main app unit (Restart=on-failure)
+│   │   │   ├── info-app.service       ← Sysinfo app unit
+│   │   │   ├── capstone-backup.service← Backup service with OnFailure alert
+│   │   │   ├── capstone-backup.timer  ← Scheduled backup timer (02:00 daily)
+│   │   │   ├── capstone-backup-alert.service ← Alert service triggered on backup failure
+│   │   │   ├── health-check.service   ← Monitoring service
+│   │   │   └── health-check.timer     ← Periodic health check timer (every 10m)
+│   │   └── issue                      ← Security Legal Warning Banner
+│   │
+│   └── opt/
+│       ├── capstone-app/              ← Node.js CRUD App (server.js, public UI)
+│       ├── info-app/                  ← SysInfo Microservice (localhost:4000)
+│       ├── postgres-svc/              ← Docker Compose PostgreSQL 17 + seed.sql
+│       └── scripts/                   ← ShellCheck Clean 100% Operations Toolkit
+│           ├── menu.sh                ← Interactive CLI Menu
+│           ├── deploy.sh              ← Safe Deployment with Auto-Rollback
+│           ├── health-check.sh        ← Health Monitoring & Email Alerting
+│           ├── log-rotate.sh          ← Log Rotation & Gzip Compression
+│           ├── backup.sh              ← Automated Backup & Retention & Rsync
+│           └── restore.sh             ← Full Disaster Recovery & Database Import
 │
-├── nginx/                             ← Reverse proxy configs
-│   ├── app.conf                       ← Virtual host #1 — proxy_pass to app
-│   ├── status.conf                    ← Virtual host #2 — static status page
-│   └── tls/                           ← (Bonus) self-signed cert + HTTP→HTTPS redirect
-│
-├── db/                                ← PostgreSQL setup
-│   ├── seed.sql                       ← seed DB + least-privilege role creation
-│   └── postgresql.conf.d/             ← localhost-only listen config
-│
-├── security/                          ← Hardening configs
-│   ├── sshd_config.d/                 ← Key auth, no root login, custom port/AllowUsers
-│   ├── ufw-rules.sh
-│   ├── fail2ban/
-│   └── auditd/                        ← Watch rules for /etc/passwd, /etc/shadow
-│
-├── backup/
-│   ├── backup.sh                      ← Dump DB + tar web content, compress, timestamp, retention, rsync to VM2
-│   ├── restore.sh                     ← Restore procedure (tested against real data loss)
-│   └── crontab / backup.timer         ← Scheduled run
-│
-├── toolkit/                           ← Automation CLI menu
-│   ├── menu.sh                        ← Entry point, dispatches to each tool
-│   ├── deploy.sh                      ← Copy, set perms, test config, reload, auto-rollback
-│   ├── health-check.sh                ← CPU/RAM/disk/service/port checks + alert thresholds
-│   ├── alert.sh                       ← Mail/Telegram notification channel
-│   └── logrotate.sh                   ← Rotate, compress, retain N, purge old logs
-│
-└── lynis/                             ← Before/after hardening scan results
-    ├── before.txt
-    └── after.txt
+└── vm2/                               ← Filesystem mirror for VM2 (Backup Host)
+    ├── data/backups/capstoneapp/      ← Rsync destination directory (opsadmin:opsadmin)
+    └── etc/
+        ├── audit/rules.d/
+        │   └── sensitive_files.rules  ← Auditd baseline rules
+        └── fail2ban/
+            └── jail.local             ← Fail2ban SSH protection
 ```
 
 ---

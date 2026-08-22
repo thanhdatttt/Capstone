@@ -1,7 +1,7 @@
 {
   "name": "capstone-app",
   "version": "1.0.0",
-  "description": "Capstone Linux project",
+  "description": "Capstone Linux project - Express + PostgreSQL app",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

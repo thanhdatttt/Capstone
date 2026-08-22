@@ -1,6 +1,7 @@
 [Unit]
 Description=Capstone App Backup Service
 After=network.target docker.service
+OnFailure=capstone-backup-alert.service
 
 [Service]
 Type=oneshot

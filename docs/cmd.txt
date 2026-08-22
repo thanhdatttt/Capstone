@@ -1,0 +1,168 @@
+# ==============================================================================
+# 🚀 KỊCH BẢN DEMO CAPSTONE LINUX — LỆNH COPY-PASTE THỰC CHIẾN (12–15 PHÚT)
+# ==============================================================================
+# Phân chia Terminal trước khi demo:
+#   - Terminal 1 (VM1 - Service Host) : ssh -p 3333 opsadmin@howname.viewdns.net
+#   - Terminal 2 (VM2 - Backup Host)  : ssh -p 4444 opsadmin@howname.viewdns.net
+#   - Terminal 3 (Máy ngoài / Client) : curl kiểm thử từ máy cá nhân hoặc tab riêng
+# ==============================================================================
+
+
+# ==============================================================================
+# PHẦN 1: KHỞI ĐỘNG & TỔNG QUAN HỆ THỐNG (1–2 PHÚT)
+# ==============================================================================
+# Lời dẫn: "Hệ thống gồm 2 VM cô lập kết nối qua mạng nội bộ Host-Only 192.168.56.0/24.
+# VM1 đóng vai trò Application/Web/DB Host, VM2 là Backup Host."
+
+# [Chạy trên VM1 - Terminal 1]:
+hostnamectl
+sudo ufw status verbose
+
+# Kiểm tra trạng thái 5 dịch vụ cốt lõi:
+systemctl status nginx --no-pager
+systemctl status docker --no-pager
+systemctl status capstone-app --no-pager
+systemctl status info-app --no-pager
+systemctl status fail2ban --no-pager
+
+
+# ==============================================================================
+# PHẦN 2: TOÀN BỘ HỆ THỐNG CHẠY END-TO-END (2–3 PHÚT)
+# ==============================================================================
+# Lời dẫn: "Chứng minh Web Server Nginx proxy sang Node.js App và lưu dữ liệu vào PostgreSQL."
+
+# 1. Gọi Health Check & Virtual Host chính (app.lab.local - Port 3000):
+curl -s -k https://127.0.0.1/api/health -H "Host: app.lab.local"
+
+# 2. Đọc danh sách Notes hiện tại (GET):
+curl -s -k https://127.0.0.1/api/notes -H "Host: app.lab.local"
+
+# 3. Ghi dữ liệu mới vào DB qua API (POST):
+curl -k -X POST https://127.0.0.1/api/notes \
+  -H "Host: app.lab.local" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "DEMO RECORD - END TO END TEST LIVE"}'
+
+# 4. Đọc lại để chứng minh Note vừa ghi đã lưu vào DB thành công:
+curl -s -k https://127.0.0.1/api/notes -H "Host: app.lab.local"
+
+# 5. Chứng minh Virtual Host thứ 2 (status.lab.local - Port 4000) hoạt động độc lập:
+curl -s -k https://127.0.0.1/ -H "Host: status.lab.local"
+
+# 6. Chứng minh HTTP (Port 80) tự động chuyển hướng 301 sang HTTPS (Port 443):
+curl -s -I http://127.0.0.1/ -H "Host: app.lab.local" | head -n 5
+
+# 7. Chứng minh PostgreSQL và Info-App CHỈ lắng nghe trên Localhost (127.0.0.1):
+ss -tulpn | grep -E ':(4000|5432) '
+
+
+# ==============================================================================
+# PHẦN 3: BẢO MẬT & KIỂM TOÁN: FAIL2BAN + AUDITD (2 PHÚT)
+# ==============================================================================
+# Lời dẫn: "Demo Fail2ban chặn tấn công brute-force SSH và Auditd giám sát file nhạy cảm."
+
+# 1. Trên VM1 (Terminal 1) — Xem trạng thái Fail2ban trước khi tấn công:
+sudo fail2ban-client status sshd
+
+# 2. Trên VM2 (Terminal 2) — Giả lập Brute-Force gõ sai pass 3 lần vào VM1:
+ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password opsadmin@192.168.56.103
+# (Nhập sai password 3 lần cho đến khi bị ngắt kết nối)
+
+# 3. Trên VM1 (Terminal 1) — Chứng minh IP của VM2 đã bị Ban tự động:
+sudo fail2ban-client status sshd
+
+# 4. Trên VM1 (Terminal 1) — Gỡ ban (Unban) để VM2 kết nối lại bình thường:
+sudo fail2ban-client set sshd unbanip 192.168.56.104
+sudo fail2ban-client status sshd
+
+# 5. Demo Auditd bắt sự kiện tác động vào /etc/passwd:
+sudo touch /etc/passwd
+sudo ausearch -k passwd_changes -i | tail -n 25
+
+# 6. Báo cáo Lynis: "Điểm gia cố hệ thống ban đầu là 61, sau khi khắc phục 3 mục gợi ý đã tăng lên 63 điểm."
+
+
+# ==============================================================================
+# PHẦN 4: SAO LƯU & KHÔI PHỤC (BACKUP & RESTORE) (2–3 PHÚT) — ĂN ĐIỂM 20%
+# ==============================================================================
+# Lời dẫn: "Ghi dữ liệu mới -> Chạy Backup -> Xóa sạch DB -> Khôi phục nguyên vẹn 100%."
+
+# 1. Xem dữ liệu trước khi backup:
+curl -s -k https://127.0.0.1/api/notes -H "Host: app.lab.local"
+
+# 2. Chạy script Backup (Tự dump Postgres, nén App, xóa bản cũ > 7 ngày, rsync sang VM2):
+sudo /opt/scripts/backup.sh
+
+# 3. Xem file backup mới tạo trên VM1:
+ls -lh /data/backups/capstoneapp/
+
+# 4. Chứng minh file backup đã tự động sao chép sang VM2:
+ssh -o BatchMode=yes opsadmin@192.168.56.104 "ls -lh /data/backups/capstoneapp/"
+
+# 5. PHÁ HỦY DỮ LIỆU THẬT (Xóa sạch toàn bộ bảng notes trong Database):
+sudo bash -c 'source /etc/capstoneapp/.env && docker exec -i "$DB_CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -c "TRUNCATE TABLE notes;"'
+
+# 6. Kiểm tra lại Web App (Lúc này kết quả trả về mảng rỗng [] — Dữ liệu đã mất):
+curl -s -k https://127.0.0.1/api/notes -H "Host: app.lab.local"
+
+# 7. Chạy RESTORE khôi phục từ bản backup mới nhất:
+LATEST_BACKUP=$(ls -t /data/backups/capstoneapp/backup_*.tar.gz | head -n 1)
+sudo /opt/scripts/restore.sh "$LATEST_BACKUP"
+
+# 8. KIỂM TRA LẠI WEB APP — Toàn bộ dữ liệu được phục hồi nguyên vẹn 100%!
+curl -s -k https://127.0.0.1/api/notes -H "Host: app.lab.local"
+
+
+# ==============================================================================
+# PHẦN 5: TỰ ĐỘNG HÓA & CẢNH BÁO (AUTOMATION & HEALTH-CHECK) (2 PHÚT)
+# ==============================================================================
+# Lời dẫn: "Demo Menu CLI điều phối + Health Check phát hiện lỗi và tự động bắn email cảnh báo."
+
+# 1. Khởi chạy Giao diện Menu CLI tương tác:
+sudo /opt/scripts/menu.sh
+# (Nhập 4 để chạy Health Check, nhập 6 để xem Quick Status, nhập 0 để thoát)
+
+# 2. TẠO LỖI THẬT: Dừng ứng dụng info-app để tạo sự cố:
+sudo systemctl stop info-app
+
+# 3. Chạy script Health-Check phát hiện sự cố:
+sudo /opt/scripts/health-check.sh
+# (Màn hình báo đỏ Service DOWN & Port 4000 NOT LISTENING, tự động gửi email cảnh báo về namhaohuynh@gmail.com)
+
+# 4. Mở email namhaohuynh@gmail.com cho giám khảo thấy email cảnh báo vừa nổ tức thì!
+
+# 5. Khởi động lại service và kiểm tra sức khỏe hệ thống trở lại bình thường:
+sudo systemctl start info-app
+sudo /opt/scripts/health-check.sh
+
+# 6. Demo Script Triển khai an toàn có kiểm tra cú pháp và tự động rollback:
+sudo /opt/scripts/deploy.sh --app capstone-app
+
+
+# ==============================================================================
+# PHẦN 6: SYSTEMD AUTO-RESTART KHI PROCESS BỊ KILL (30 GIÂY)
+# ==============================================================================
+# Lời dẫn: "Chứng minh chính sách Restart=on-failure của systemd tự hồi sinh app khi bị crash."
+
+# 1. Xem PID và số lần restart ban đầu:
+systemctl show -p MainPID,NRestarts,ActiveState capstone-app.service
+
+# 2. Bắn hạ tiến trình Node.js bằng kill -9:
+OLD_PID=$(systemctl show -p MainPID --value capstone-app.service)
+sudo kill -9 "$OLD_PID"
+
+# 3. Kiểm tra lại sau 2 giây (PID mới đã xuất hiện, NRestarts tăng lên 1, Active: active):
+sleep 2
+systemctl show -p MainPID,NRestarts,ActiveState capstone-app.service
+journalctl -u capstone-app.service -n 8 --no-pager
+
+# 4. Web App vẫn phản hồi bình thường:
+curl -s -k https://127.0.0.1/api/health -H "Host: app.lab.local"
+
+
+# ==============================================================================
+# 🎯 CÂU CHỐT BẢO VỆ ĐỒ ÁN VÀ SẴN SÀNG CHO PHẦN Q&A:
+# "Đó là toàn bộ hệ thống hoạt động end-to-end: Web Nginx -> Node.js App -> PostgreSQL,
+# được bảo mật đa tầng, sao lưu/khôi phục dữ liệu thật 100%, và tự động hóa giám sát.
+# Nhóm chúng em xin kết thúc phần trình bày và sẵn sàng cho phần hỏi đáp của Thầy/Cô!"
+# ==============================================================================

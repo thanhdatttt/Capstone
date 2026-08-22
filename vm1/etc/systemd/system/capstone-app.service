@@ -1,7 +1,7 @@
 [Unit]
 Description=Capstone Express App
-After=network.target postgresql.service
-Wants=postgresql.service
+After=network.target docker.service
+Wants=docker.service
 
 [Service]
 Type=simple
@@ -9,14 +9,16 @@ User=svc-capstone
 Group=svc-capstone
 WorkingDirectory=/opt/capstone-app
 EnvironmentFile=/opt/capstone-app/.env
-ExecStart=/usr/bin/node /opt/capstone-app/server.js
+ExecStart=/usr//local/bin/node /opt/capstone-app/server.js
 Restart=on-failure
 RestartSec=3
 
-# Logs go to journald automatically via stdout/stderr; tag them for easy filtering
+# Logs go to journald automatically
+StandardOutput=journal
+StandardError=journal
 SyslogIdentifier=capstone-app
 
-# --- Hardening (nice extras to mention in the report / Q&A) ---
+# Hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

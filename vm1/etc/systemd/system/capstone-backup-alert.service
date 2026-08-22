@@ -1,0 +1,7 @@
+[Unit]
+Description=Send Alert on Capstone Backup Failure
+
+[Service]
+Type=oneshot
+User=opsadmin
+ExecStart=/bin/bash -c "echo -e \"Subject: 🚨 [CRITICAL] Backup FAILED on $(hostname)\nFrom: hownameee@gmail.com\nTo: namhaohuynh@gmail.com\n\nBackup process failed during execution at $(date). Please inspect /var/log/syslog and backup logs!\" | msmtp namhaohuynh@gmail.com"

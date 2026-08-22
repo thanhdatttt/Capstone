@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# backup.sh - Capstone Linux Project
 # Enforce strict error handling
 set -euo pipefail
 
@@ -11,12 +11,13 @@ trap 'error_handler $LINENO' ERR EXIT
 
 # --help / -h
 usage() {
-    cat <<EOF
-Usage: $0 [--help]
+    cat << "EOF"
+Usage: backup.sh [--help]
 
-Dumps the PostgreSQL database (via Docker) and tars app content into a
-single timestamped, compressed archive under \$BACKUP_DIR, prunes backups
-older than \$RETENTION_DAYS days, and rsyncs the new archive to VM2.
+Dumps the PostgreSQL database (via Docker) and tars app content plus web
+content ($WEB_ROOT and the Nginx site configuration) into a single
+timestamped, compressed archive under $BACKUP_DIR, prunes backups
+older than $RETENTION_DAYS days, and rsyncs the new archive to VM2.
 
 No arguments are required for normal operation.
 EOF
@@ -26,19 +27,20 @@ EOF
 [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]] && usage
 
 # ---- Config ----
-BACKUP_DIR="/var/backups/capstoneapp"
+BACKUP_DIR="/data/backups/capstoneapp"
 APP1_DIR="/opt/capstone-app"
 APP2_DIR="/opt/info-app"
+WEB_ROOT="/var/www"
+NGINX_CONF_DIR="/etc/nginx/sites-available"
 RETENTION_DAYS=7
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_FILE="${BACKUP_DIR}/backup_${TIMESTAMP}.tar.gz"
 DB_DUMP_FILE="${BACKUP_DIR}/db_${TIMESTAMP}.sql"
 
-# rsync target — fixed values, do NOT rely on $SUDO_USER (unset when run
-# from cron/systemd, and set -u would kill the script on that line)
+# rsync target
 RSYNC_USER="opsadmin"
 RSYNC_HOST="192.168.56.104"
-RSYNC_DEST="/data/backups/capstoneapp/"   # relative to $RSYNC_USER's home on VM2, no literal ~ in quotes
+RSYNC_DEST="/data/backups/capstoneapp/"
 
 # ---- Load secrets ----
 ENV_FILE="/etc/capstoneapp/.env"
@@ -50,7 +52,7 @@ else
     exit 1
 fi
 
-# Required vars from env file — fail fast with a clear message if missing
+# Required vars from env file
 : "${DB_CONTAINER_NAME:?DB_CONTAINER_NAME not set in $ENV_FILE}"
 : "${DB_USER:?DB_USER not set in $ENV_FILE}"
 : "${DB_NAME:?DB_NAME not set in $ENV_FILE}"
@@ -59,20 +61,20 @@ echo "[INFO] Starting backup process..."
 sudo mkdir -p "$BACKUP_DIR"
 
 # ---- DB dump (via Docker) ----
-# --clean --if-exists: dump includes DROP ... IF EXISTS before CREATE, so
-# restore.sh works whether the table still exists (data-only wipe test) or
-# has been dropped entirely (full disaster test).
 echo "[INFO] Dumping the PostgreSQL database from Docker..."
 sudo docker exec "$DB_CONTAINER_NAME" pg_dump -U "$DB_USER" -d "$DB_NAME" \
     --clean --if-exists -F p | sudo tee "$DB_DUMP_FILE" > /dev/null
 
 # ---- Compress app files and DB dump together ----
-echo "[INFO] Compressing app files and database dump..."
+echo "[INFO] Compressing app files, web content and database dump..."
 sudo tar -czf "$BACKUP_FILE" \
-    -C / "${APP1_DIR#/}" "${APP2_DIR#/}" \
+    -C / "${APP1_DIR#/}" "${APP2_DIR#/}" "${WEB_ROOT#/}" "${NGINX_CONF_DIR#/}" \
     -C "$BACKUP_DIR" "$(basename "$DB_DUMP_FILE")"
 
-# ---- Cleanup temp SQL file (now inside the archive) ----
+# Set ownership for opsadmin so rsync succeeds
+sudo chown "$RSYNC_USER:$RSYNC_USER" "$BACKUP_FILE"
+
+# ---- Cleanup temp SQL file ----
 sudo rm -f "$DB_DUMP_FILE"
 
 # ---- Retention: delete backups older than RETENTION_DAYS ----

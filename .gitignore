@@ -1,1 +1,36 @@
+# Runtime environments and local overrides
 .env
+.env.local
+.env.*.local
+!.env.example
+!.env-example
+
+# Dependencies, caches, and generated output
+node_modules/
+dist/
+build/
+coverage/
+__pycache__/
+*.pyc
+
+# Credentials and private key material
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Operational data and archives
+backup_*.tar.gz
+db_*.sql
+*.zip
+*.tar
+*.tgz
+
+# Editor and operating-system artifacts
+.DS_Store
+*.swp
+*~

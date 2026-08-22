@@ -1,0 +1,7 @@
+[Unit]
+Description=Capstone System Health Check Service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/health-check.sh
+User=root

@@ -1,0 +1,5 @@
+# Theo dõi các thay đổi đối với file /etc/passwd (gán key: passwd_changes)
+-w /etc/passwd -p wa -k passwd_changes
+
+# Theo dõi các thay đổi đối với file /etc/shadow (gán key: shadow_changes)
+-w /etc/shadow -p wa -k shadow_changes

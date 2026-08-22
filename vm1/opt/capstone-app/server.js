@@ -1,13 +1,16 @@
-// server.js
-
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const { Pool } = require('pg');
 
 const app = express();
 app.use(express.json());
 
-// --- DB pool, config comes only from environment variables ---
+// --- Static demo page (public/index.html)
+app.use(express.static(path.join(__dirname, 'public')));
+
+
+// DB pool
 const pool = new Pool({
   host: process.env.DB_HOST || '127.0.0.1',
   port: process.env.DB_PORT || 5432,
@@ -19,12 +22,10 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  // Don't crash the whole process on an idle client error;
-  // log it so it's visible in journald via systemd.
   console.error('Unexpected PG pool error:', err.message);
 });
 
-// --- Ensure table exists on boot (simple, idempotent) ---
+// Ensure table exists on boot
 async function ensureSchema() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS notes (
@@ -35,7 +36,7 @@ async function ensureSchema() {
   `);
 }
 
-// --- READ endpoint #1: health check (also proves DB connectivity) ---
+// Endpoint 1
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -46,7 +47,7 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// --- READ endpoint #2: list notes ---
+// Endpoint 2
 app.get('/api/notes', async (req, res) => {
   try {
     const result = await pool.query(
@@ -59,7 +60,7 @@ app.get('/api/notes', async (req, res) => {
   }
 });
 
-// --- WRITE endpoint: insert a note ---
+// Endpoint 3
 app.post('/api/notes', async (req, res) => {
   const { content } = req.body;
   if (!content || typeof content !== 'string' || content.trim() === '') {
@@ -77,9 +78,9 @@ app.post('/api/notes', async (req, res) => {
   }
 });
 
-// --- Start server, bound to localhost only ---
+// Start server
 const PORT = process.env.APP_PORT || 3000;
-const HOST = '127.0.0.1'; // never 0.0.0.0 — Nginx handles the public side
+const HOST = '127.0.0.1';
 
 async function start() {
   try {
@@ -89,7 +90,7 @@ async function start() {
     });
   } catch (err) {
     console.error('Fatal startup error:', err.message);
-    process.exit(1); // non-zero exit -> systemd Restart=on-failure kicks in
+    process.exit(1); // non-zero exit so systemd Restart=on-failure kicks in
   }
 }
 
